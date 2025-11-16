@@ -1,0 +1,70 @@
+QUICK COPY-PASTE TEST DATA
+==========================
+
+Just copy the values from each line and paste into the calculator fields in order:
+Thickness | Total Width | Length Per Pcs | No of Pcs | Sheet Width | Sheet Length | Cost Per Kg
+
+EXAMPLE 1 - Edge Trim (Original)
+2 | 300 | 3000 | 50 | 1220 | 3000 | 6
+
+EXAMPLE 2 - Large Angle Iron
+3 | 200 | 6000 | 100 | 1220 | 6000 | 5.5
+
+EXAMPLE 3 - Narrow Strips
+1.5 | 50 | 1000 | 500 | 1220 | 3000 | 7
+
+EXAMPLE 4 - Wide Panels
+2.5 | 600 | 2400 | 30 | 1220 | 2400 | 8
+
+EXAMPLE 5 - Small Brackets
+4 | 150 | 200 | 200 | 1220 | 3000 | 6.5
+
+EXAMPLE 6 - Thin Gauge
+0.5 | 400 | 2500 | 75 | 1220 | 3000 | 9
+
+EXAMPLE 7 - Heavy Structural
+6 | 350 | 4000 | 40 | 1220 | 6000 | 5
+
+EXAMPLE 8 - Perfect Fit (0 Scrap)
+2 | 305 | 3000 | 60 | 1220 | 3000 | 6
+
+EXAMPLE 9 - Budget Material
+1 | 250 | 2000 | 80 | 1220 | 3000 | 4
+
+EXAMPLE 10 - Premium Custom
+5 | 800 | 2800 | 25 | 1220 | 3000 | 12
+
+EDGE CASES TO TEST:
+
+High Quantity Order:
+2 | 100 | 3000 | 1000 | 1220 | 3000 | 6
+(Should need 84 sheets)
+
+Single Piece Per Sheet:
+2 | 1200 | 3000 | 10 | 1220 | 3000 | 6
+(Should need 10 sheets, 1 piece per sheet)
+
+Perfect Width Division:
+2 | 610 | 3000 | 20 | 1220 | 3000 | 6
+(Should have 0 scrap, exactly 2 pieces per sheet)
+
+Maximum Pieces Per Sheet:
+2 | 100 | 3000 | 50 | 1220 | 3000 | 6
+(Should fit 12 pieces per sheet)
+
+Small Order:
+2 | 300 | 3000 | 3 | 1220 | 3000 | 6
+(Should need only 1 sheet)
+
+Very Thick Material:
+10 | 300 | 3000 | 50 | 1220 | 3000 | 6
+(Should be very heavy, high cost)
+
+Very Thin Material:
+0.4 | 300 | 3000 | 50 | 1220 | 3000 | 6
+(Should be very light, low cost)
+
+Different Cost:
+2 | 300 | 3000 | 50 | 1220 | 3000 | 15
+(Same as Example 1 but 2.5x cost)
+

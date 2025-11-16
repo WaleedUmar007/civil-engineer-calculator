@@ -16,6 +16,7 @@ function App() {
   });
 
   const [results, setResults] = useState(null);
+  const [errors, setErrors] = useState({});
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -25,6 +26,15 @@ function App() {
       ...prev,
       [name]: numValue >= 0 ? numValue : 0
     }));
+    
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
 
   const handleReset = () => {
@@ -38,6 +48,7 @@ function App() {
       costPerKg: 6
     });
     setResults(null);
+    setErrors({});
   };
 
   const calculate = () => {
@@ -51,41 +62,52 @@ function App() {
       costPerKg
     } = inputs;
 
+    // Clear previous errors
+    const newErrors = {};
+
     // Validation: Check for zero or invalid values
     if (!thickness || thickness <= 0) {
-      alert('Please enter a valid thickness greater than 0');
-      return;
+      newErrors.thickness = 'Thickness must be greater than 0';
     }
     if (!totalWidth || totalWidth <= 0) {
-      alert('Please enter a valid total width greater than 0');
-      return;
+      newErrors.totalWidth = 'Total width must be greater than 0';
     }
     if (!lengthPerPcs || lengthPerPcs <= 0) {
-      alert('Please enter a valid length per piece greater than 0');
-      return;
+      newErrors.lengthPerPcs = 'Length per piece must be greater than 0';
     }
     if (!noOfPcs || noOfPcs <= 0) {
-      alert('Please enter a valid number of pieces greater than 0');
-      return;
+      newErrors.noOfPcs = 'Number of pieces must be greater than 0';
     }
     if (!sheetWidth || sheetWidth <= 0) {
-      alert('Please enter a valid sheet width greater than 0');
-      return;
+      newErrors.sheetWidth = 'Sheet width must be greater than 0';
     }
     if (!sheetLength || sheetLength <= 0) {
-      alert('Please enter a valid sheet length greater than 0');
-      return;
+      newErrors.sheetLength = 'Sheet length must be greater than 0';
     }
     if (!costPerKg || costPerKg <= 0) {
-      alert('Please enter a valid cost per kg greater than 0');
-      return;
+      newErrors.costPerKg = 'Cost per kg must be greater than 0';
     }
 
     // Check if piece width exceeds sheet width
-    if (totalWidth > sheetWidth) {
-      alert('Piece width cannot exceed sheet width!');
+    if (totalWidth > 0 && sheetWidth > 0 && totalWidth > sheetWidth) {
+      newErrors.totalWidth = 'Piece width cannot exceed sheet width!';
+      newErrors.sheetWidth = 'Sheet width must be larger than piece width!';
+    }
+
+    // Check if piece length exceeds sheet length
+    if (lengthPerPcs > 0 && sheetLength > 0 && lengthPerPcs > sheetLength) {
+      newErrors.lengthPerPcs = 'Piece length cannot exceed sheet length!';
+      newErrors.sheetLength = 'Sheet length must be larger than piece length!';
+    }
+
+    // If there are any errors, set them and stop
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    // Clear errors if validation passed
+    setErrors({});
 
     // Steel density in kg/m³ (7850 kg/m³ for steel)
     const steelDensity = 7850;
@@ -93,8 +115,12 @@ function App() {
     // Calculate pieces per sheet (how many pieces fit across the width)
     const piecesPerSheet = Math.floor(sheetWidth / totalWidth);
     
+    // This should be caught by the validation above, but just in case
     if (piecesPerSheet === 0) {
-      alert('Cannot fit any pieces in the sheet width!');
+      setErrors({
+        totalWidth: 'Piece is too wide to fit in sheet!',
+        sheetWidth: 'Sheet is too narrow for this piece width!'
+      });
       return;
     }
     
@@ -195,7 +221,9 @@ function App() {
                   placeholder="e.g., 2"
                   min="0"
                   step="0.1"
+                  className={errors.thickness ? 'error' : ''}
                 />
+                {errors.thickness && <span className="error-message">{errors.thickness}</span>}
               </div>
               <div className="input-field">
                 <label>Total Width (mm)</label>
@@ -206,7 +234,9 @@ function App() {
                   onChange={handleInputChange}
                   placeholder="e.g., 300"
                   min="0"
+                  className={errors.totalWidth ? 'error' : ''}
                 />
+                {errors.totalWidth && <span className="error-message">{errors.totalWidth}</span>}
               </div>
               <div className="input-field">
                 <label>Length Per Pcs (mm)</label>
@@ -217,7 +247,9 @@ function App() {
                   onChange={handleInputChange}
                   placeholder="e.g., 3000"
                   min="0"
+                  className={errors.lengthPerPcs ? 'error' : ''}
                 />
+                {errors.lengthPerPcs && <span className="error-message">{errors.lengthPerPcs}</span>}
               </div>
               <div className="input-field">
                 <label>No of Pcs</label>
@@ -228,7 +260,9 @@ function App() {
                   onChange={handleInputChange}
                   placeholder="e.g., 50"
                   min="0"
+                  className={errors.noOfPcs ? 'error' : ''}
                 />
+                {errors.noOfPcs && <span className="error-message">{errors.noOfPcs}</span>}
               </div>
             </div>
 
@@ -243,7 +277,9 @@ function App() {
                   onChange={handleInputChange}
                   placeholder="e.g., 1220"
                   min="0"
+                  className={errors.sheetWidth ? 'error' : ''}
                 />
+                {errors.sheetWidth && <span className="error-message">{errors.sheetWidth}</span>}
               </div>
               <div className="input-field">
                 <label>Sheet Length (mm)</label>
@@ -254,7 +290,9 @@ function App() {
                   onChange={handleInputChange}
                   placeholder="e.g., 3000"
                   min="0"
+                  className={errors.sheetLength ? 'error' : ''}
                 />
+                {errors.sheetLength && <span className="error-message">{errors.sheetLength}</span>}
               </div>
             </div>
 
@@ -270,7 +308,9 @@ function App() {
                   placeholder="e.g., 6"
                   min="0"
                   step="0.01"
+                  className={errors.costPerKg ? 'error' : ''}
                 />
+                {errors.costPerKg && <span className="error-message">{errors.costPerKg}</span>}
               </div>
             </div>
 
