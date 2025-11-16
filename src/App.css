@@ -222,7 +222,31 @@ h3 {
 
 .calculation-details h3 {
   color: #667eea;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+}
+
+.detail-section {
+  margin-bottom: 2rem;
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-section h4 {
+  color: #667eea;
+  font-size: 1.1rem;
   margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.info-text {
+  font-size: 0.85rem;
+  color: #718096;
+  font-style: italic;
+  margin-top: 0.5rem;
 }
 
 .detail-box {

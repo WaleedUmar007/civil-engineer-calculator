@@ -3,12 +3,16 @@ import './App.css';
 
 function App() {
   const [inputs, setInputs] = useState({
-    piecesRequired: 50,
-    pieceWidth: 300,
-    pieceLength: 3000,
+    // Finish Product specs
+    thickness: 2,
+    totalWidth: 300,
+    lengthPerPcs: 3000,
+    noOfPcs: 50,
+    // Raw Material specs
     sheetWidth: 1220,
     sheetLength: 3000,
-    availableCoilLength: 150
+    // Pricing
+    costPerKg: 6
   });
 
   const [results, setResults] = useState(null);
@@ -25,45 +29,129 @@ function App() {
 
   const handleReset = () => {
     setInputs({
-      piecesRequired: 50,
-      pieceWidth: 300,
-      pieceLength: 3000,
+      thickness: 2,
+      totalWidth: 300,
+      lengthPerPcs: 3000,
+      noOfPcs: 50,
       sheetWidth: 1220,
       sheetLength: 3000,
-      availableCoilLength: 150
+      costPerKg: 6
     });
     setResults(null);
   };
 
   const calculate = () => {
     const {
-      piecesRequired,
-      pieceWidth,
-      pieceLength,
+      thickness,
+      totalWidth,
+      lengthPerPcs,
+      noOfPcs,
       sheetWidth,
-      sheetLength
+      sheetLength,
+      costPerKg
     } = inputs;
 
-    // Calculate pieces per sheet
-    const piecesPerSheet = Math.floor(sheetWidth / pieceWidth);
+    // Validation: Check for zero or invalid values
+    if (!thickness || thickness <= 0) {
+      alert('Please enter a valid thickness greater than 0');
+      return;
+    }
+    if (!totalWidth || totalWidth <= 0) {
+      alert('Please enter a valid total width greater than 0');
+      return;
+    }
+    if (!lengthPerPcs || lengthPerPcs <= 0) {
+      alert('Please enter a valid length per piece greater than 0');
+      return;
+    }
+    if (!noOfPcs || noOfPcs <= 0) {
+      alert('Please enter a valid number of pieces greater than 0');
+      return;
+    }
+    if (!sheetWidth || sheetWidth <= 0) {
+      alert('Please enter a valid sheet width greater than 0');
+      return;
+    }
+    if (!sheetLength || sheetLength <= 0) {
+      alert('Please enter a valid sheet length greater than 0');
+      return;
+    }
+    if (!costPerKg || costPerKg <= 0) {
+      alert('Please enter a valid cost per kg greater than 0');
+      return;
+    }
+
+    // Check if piece width exceeds sheet width
+    if (totalWidth > sheetWidth) {
+      alert('Piece width cannot exceed sheet width!');
+      return;
+    }
+
+    // Steel density in kg/m³ (7850 kg/m³ for steel)
+    const steelDensity = 7850;
+
+    // Calculate pieces per sheet (how many pieces fit across the width)
+    const piecesPerSheet = Math.floor(sheetWidth / totalWidth);
     
-    // Calculate sheets needed
-    const sheetsNeeded = Math.ceil(piecesRequired / piecesPerSheet);
+    if (piecesPerSheet === 0) {
+      alert('Cannot fit any pieces in the sheet width!');
+      return;
+    }
     
-    // Calculate total pieces obtained
+    // Calculate sheets needed (round up to get whole sheets)
+    const sheetsNeeded = Math.ceil(noOfPcs / piecesPerSheet);
+    
+    // Calculate total pieces obtained from all sheets
     const piecesObtained = sheetsNeeded * piecesPerSheet;
     
-    // Calculate extra pieces
-    const extraPieces = piecesObtained - piecesRequired;
+    // Calculate extra pieces (leftover after fulfilling requirement)
+    const extraPieces = piecesObtained - noOfPcs;
     
-    // Calculate scrap
-    const widthUsed = piecesPerSheet * pieceWidth;
+    // Calculate scrap (unused width per sheet)
+    const widthUsed = piecesPerSheet * totalWidth;
     const scrapWidth = sheetWidth - widthUsed;
     
-    // Calculate utilization
+    // Calculate utilization percentages
     const widthUtilization = (widthUsed / sheetWidth) * 100;
-    const lengthUtilization = pieceLength === sheetLength ? 100 : (pieceLength / sheetLength) * 100;
+    const lengthUtilization = lengthPerPcs === sheetLength ? 100 : (lengthPerPcs / sheetLength) * 100;
     
+    // === WEIGHT CALCULATIONS ===
+    // Convert all dimensions from millimeters to meters for volume calculation
+    const sheetWidthM = sheetWidth / 1000;
+    const sheetLengthM = sheetLength / 1000;
+    const thicknessM = thickness / 1000;
+    const totalWidthM = totalWidth / 1000;
+    const lengthPerPcsM = lengthPerPcs / 1000;
+    
+    // Calculate volume and weight of one sheet
+    // Volume = width × length × thickness (in m³)
+    const volumePerSheet = sheetWidthM * sheetLengthM * thicknessM;
+    // Weight = volume × density
+    const weightPerSheet = volumePerSheet * steelDensity;
+    
+    // Calculate volume and weight of one finished piece
+    const volumePerPiece = totalWidthM * lengthPerPcsM * thicknessM;
+    const weightPerPiece = volumePerPiece * steelDensity;
+    
+    // Calculate total weights
+    const totalSheetWeight = weightPerSheet * sheetsNeeded;
+    const totalFinishedWeight = weightPerPiece * noOfPcs;
+    
+    // === COST CALCULATIONS ===
+    // Total cost based on purchased sheets (includes scrap and extra pieces)
+    const totalSheetCost = totalSheetWeight * costPerKg;
+    
+    // Cost based only on finished product weight (theoretical minimum)
+    const totalFinishedCost = totalFinishedWeight * costPerKg;
+    
+    // Cost per piece spreading sheet cost over required pieces (SELLING PRICE)
+    // This includes the cost of scrap and extra pieces distributed across the required quantity
+    const costPerPieceSheetBasis = totalSheetCost / noOfPcs;
+    
+    // Cost per piece based only on actual piece weight (for comparison)
+    const costPerPieceActualWeight = totalFinishedCost / noOfPcs;
+    
+    // Set all calculated results
     setResults({
       piecesPerSheet,
       sheetsNeeded,
@@ -72,7 +160,15 @@ function App() {
       scrapWidth,
       widthUtilization,
       lengthUtilization,
-      widthUsed
+      widthUsed,
+      weightPerSheet,
+      weightPerPiece,
+      totalSheetWeight,
+      totalFinishedWeight,
+      totalSheetCost,
+      totalFinishedCost,
+      costPerPieceSheetBasis,
+      costPerPieceActualWeight
     });
   };
 
@@ -85,40 +181,52 @@ function App() {
         <div className="calculator-grid">
           {/* Input Section */}
           <div className="input-section">
-            <h2>Input Parameters</h2>
+            <h2>Input</h2>
             
             <div className="input-group">
-              <h3>Required Finished Parts</h3>
+              <h3>Finish Product</h3>
               <div className="input-field">
-                <label>Number of Pieces</label>
+                <label>Thickness (mm)</label>
                 <input
                   type="number"
-                  name="piecesRequired"
-                  value={inputs.piecesRequired}
+                  name="thickness"
+                  value={inputs.thickness}
                   onChange={handleInputChange}
-                  placeholder="e.g., 50"
+                  placeholder="e.g., 2"
                   min="0"
+                  step="0.1"
                 />
               </div>
               <div className="input-field">
-                <label>Piece Width (mm)</label>
+                <label>Total Width (mm)</label>
                 <input
                   type="number"
-                  name="pieceWidth"
-                  value={inputs.pieceWidth}
+                  name="totalWidth"
+                  value={inputs.totalWidth}
                   onChange={handleInputChange}
                   placeholder="e.g., 300"
                   min="0"
                 />
               </div>
               <div className="input-field">
-                <label>Piece Length (mm)</label>
+                <label>Length Per Pcs (mm)</label>
                 <input
                   type="number"
-                  name="pieceLength"
-                  value={inputs.pieceLength}
+                  name="lengthPerPcs"
+                  value={inputs.lengthPerPcs}
                   onChange={handleInputChange}
                   placeholder="e.g., 3000"
+                  min="0"
+                />
+              </div>
+              <div className="input-field">
+                <label>No of Pcs</label>
+                <input
+                  type="number"
+                  name="noOfPcs"
+                  value={inputs.noOfPcs}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 50"
                   min="0"
                 />
               </div>
@@ -151,16 +259,17 @@ function App() {
             </div>
 
             <div className="input-group">
-              <h3>Optional</h3>
+              <h3>Pricing</h3>
               <div className="input-field">
-                <label>Available Coil Length (meters)</label>
+                <label>Cost Per Kg (AED)</label>
                 <input
                   type="number"
-                  name="availableCoilLength"
-                  value={inputs.availableCoilLength}
+                  name="costPerKg"
+                  value={inputs.costPerKg}
                   onChange={handleInputChange}
-                  placeholder="e.g., 150"
+                  placeholder="e.g., 6"
                   min="0"
+                  step="0.01"
                 />
               </div>
             </div>
@@ -178,52 +287,86 @@ function App() {
           {/* Results Section */}
           {results && (
             <div className="results-section">
-              <h2>Calculation Results</h2>
+              <h2>Output</h2>
               
               <div className="results-table">
-                <div className="result-row">
-                  <span className="result-label">Pieces Required</span>
-                  <span className="result-value">{inputs.piecesRequired} pcs</span>
-                </div>
                 <div className="result-row highlight">
-                  <span className="result-label">Sheets Needed</span>
+                  <span className="result-label">No Of Pcs Required from Raw Material</span>
                   <span className="result-value">{results.sheetsNeeded} sheets</span>
                 </div>
                 <div className="result-row">
-                  <span className="result-label">Pieces Obtained</span>
-                  <span className="result-value">{results.piecesObtained} pcs</span>
+                  <span className="result-label">Finish Product Weight Per Pcs</span>
+                  <span className="result-value">{results.weightPerPiece.toFixed(2)} kg</span>
                 </div>
                 <div className="result-row success">
-                  <span className="result-label">Extra Pieces</span>
-                  <span className="result-value">{results.extraPieces} pcs</span>
-                </div>
-                <div className="result-row warning">
-                  <span className="result-label">Scrap (width)</span>
-                  <span className="result-value">{results.scrapWidth} mm per sheet</span>
-                </div>
-                <div className="result-row">
-                  <span className="result-label">Utilization</span>
-                  <span className="result-value">≈ {results.widthUtilization.toFixed(2)}%</span>
+                  <span className="result-label">Selling Price per Pcs</span>
+                  <span className="result-value">AED {results.costPerPieceSheetBasis.toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="calculation-details">
-                <h3>Calculation Breakdown</h3>
-                <div className="detail-box">
-                  <p><strong>Pieces per sheet:</strong></p>
-                  <p className="formula">⌊{inputs.sheetWidth} ÷ {inputs.pieceWidth}⌋ = {results.piecesPerSheet} pcs/sheet</p>
+                <h3>Detailed Breakdown</h3>
+                
+                <div className="detail-section">
+                  <h4>Material Calculation</h4>
+                  <div className="detail-box">
+                    <p><strong>Pieces per sheet:</strong></p>
+                    <p className="formula">⌊{inputs.sheetWidth} ÷ {inputs.totalWidth}⌋ = {results.piecesPerSheet} pcs/sheet</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Sheets needed:</strong></p>
+                    <p className="formula">⌈{inputs.noOfPcs} ÷ {results.piecesPerSheet}⌉ = {results.sheetsNeeded} sheets</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Total pieces obtained:</strong></p>
+                    <p className="formula">{results.sheetsNeeded} × {results.piecesPerSheet} = {results.piecesObtained} pcs</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Extra pieces:</strong></p>
+                    <p className="formula">{results.piecesObtained} - {inputs.noOfPcs} = {results.extraPieces} pcs</p>
+                  </div>
                 </div>
-                <div className="detail-box">
-                  <p><strong>Width used:</strong></p>
-                  <p className="formula">{results.piecesPerSheet} × {inputs.pieceWidth} = {results.widthUsed} mm</p>
+
+                <div className="detail-section">
+                  <h4>Utilization</h4>
+                  <div className="detail-box">
+                    <p><strong>Width used per sheet:</strong></p>
+                    <p className="formula">{results.piecesPerSheet} × {inputs.totalWidth} = {results.widthUsed} mm</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Scrap per sheet:</strong></p>
+                    <p className="formula">{inputs.sheetWidth} - {results.widthUsed} = {results.scrapWidth} mm</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Width utilization:</strong></p>
+                    <p className="formula">{results.widthUtilization.toFixed(2)}%</p>
+                  </div>
                 </div>
-                <div className="detail-box">
-                  <p><strong>Width utilization:</strong></p>
-                  <p className="formula">{results.widthUsed} ÷ {inputs.sheetWidth} = {results.widthUtilization.toFixed(2)}%</p>
-                </div>
-                <div className="detail-box">
-                  <p><strong>Length utilization:</strong></p>
-                  <p className="formula">{results.lengthUtilization.toFixed(2)}% {inputs.pieceLength === inputs.sheetLength ? '(exact match)' : ''}</p>
+
+                <div className="detail-section">
+                  <h4>Weight & Cost Analysis</h4>
+                  <div className="detail-box">
+                    <p><strong>Weight per sheet:</strong></p>
+                    <p className="formula">{results.weightPerSheet.toFixed(2)} kg</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Total sheet weight:</strong></p>
+                    <p className="formula">{results.sheetsNeeded} × {results.weightPerSheet.toFixed(2)} = {results.totalSheetWeight.toFixed(2)} kg</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Total finished weight ({inputs.noOfPcs} pcs):</strong></p>
+                    <p className="formula">{inputs.noOfPcs} × {results.weightPerPiece.toFixed(2)} = {results.totalFinishedWeight.toFixed(2)} kg</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Total sheet cost:</strong></p>
+                    <p className="formula">{results.totalSheetWeight.toFixed(2)} kg × AED {inputs.costPerKg} = AED {results.totalSheetCost.toFixed(2)}</p>
+                  </div>
+                  <div className="detail-box">
+                    <p><strong>Cost breakdown:</strong></p>
+                    <p className="formula">Sheet basis (incl. scrap): AED {results.costPerPieceSheetBasis.toFixed(2)}/pc</p>
+                    <p className="formula">Actual weight only: AED {results.costPerPieceActualWeight.toFixed(2)}/pc</p>
+                    <p className="info-text">* Selling price includes cost of {results.extraPieces} extra pcs + {results.scrapWidth}mm scrap per sheet</p>
+                  </div>
                 </div>
               </div>
             </div>
