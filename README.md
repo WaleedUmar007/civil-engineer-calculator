@@ -9,8 +9,12 @@ A comprehensive React-based calculator for civil engineers to optimize material 
 - Calculate selling price per piece (including scrap and leftover cost)
 - Show material utilization and waste analysis
 - Display extra pieces and scrap dimensions
+- **Empty input fields** by default - click and type immediately, no clearing needed
+- **Load Example Data** button - one-click to populate fields with working example
 - **Inline error validation** with visual feedback (red borders & messages)
 - Real-time error clearing as you type
+- **Smooth, fluid animations** for all interactions and calculations
+- **Seamless result updates** without page reload or jarring changes
 - Beautiful, modern UI with responsive design
 - Reset functionality
 
@@ -83,6 +87,10 @@ npm start
 📋 **`CALCULATION_FORMULAS.md`** - Detailed mathematical formulas used
 
 📋 **`ERROR_VALIDATION_GUIDE.md`** - Error validation rules and testing guide
+
+📋 **`SMOOTH_TRANSITIONS_GUIDE.md`** - Complete guide to fluid animations and UX
+
+📋 **`USER_EXPERIENCE_IMPROVEMENTS.md`** - All UX improvements and empty fields feature
 
 ## Build for Production
 

@@ -4,28 +4,40 @@ import './App.css';
 function App() {
   const [inputs, setInputs] = useState({
     // Finish Product specs
-    thickness: 2,
-    totalWidth: 300,
-    lengthPerPcs: 3000,
-    noOfPcs: 50,
+    thickness: '',
+    totalWidth: '',
+    lengthPerPcs: '',
+    noOfPcs: '',
     // Raw Material specs
-    sheetWidth: 1220,
-    sheetLength: 3000,
+    sheetWidth: '',
+    sheetLength: '',
     // Pricing
-    costPerKg: 6
+    costPerKg: ''
   });
 
   const [results, setResults] = useState(null);
   const [errors, setErrors] = useState({});
+  const [isCalculating, setIsCalculating] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    const numValue = parseFloat(value);
-    // Ensure non-negative values
-    setInputs(prev => ({
-      ...prev,
-      [name]: numValue >= 0 ? numValue : 0
-    }));
+    
+    // Allow empty string or valid positive numbers
+    if (value === '') {
+      setInputs(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    } else {
+      const numValue = parseFloat(value);
+      // Only set if it's a valid positive number
+      if (!isNaN(numValue) && numValue >= 0) {
+        setInputs(prev => ({
+          ...prev,
+          [name]: numValue
+        }));
+      }
+    }
     
     // Clear error for this field when user starts typing
     if (errors[name]) {
@@ -39,6 +51,20 @@ function App() {
 
   const handleReset = () => {
     setInputs({
+      thickness: '',
+      totalWidth: '',
+      lengthPerPcs: '',
+      noOfPcs: '',
+      sheetWidth: '',
+      sheetLength: '',
+      costPerKg: ''
+    });
+    setResults(null);
+    setErrors({});
+  };
+
+  const loadExample = () => {
+    setInputs({
       thickness: 2,
       totalWidth: 300,
       lengthPerPcs: 3000,
@@ -47,7 +73,6 @@ function App() {
       sheetLength: 3000,
       costPerKg: 6
     });
-    setResults(null);
     setErrors({});
   };
 
@@ -65,26 +90,26 @@ function App() {
     // Clear previous errors
     const newErrors = {};
 
-    // Validation: Check for zero or invalid values
-    if (!thickness || thickness <= 0) {
+    // Validation: Check for empty, zero or invalid values
+    if (thickness === '' || thickness === null || thickness === undefined || thickness <= 0) {
       newErrors.thickness = 'Thickness must be greater than 0';
     }
-    if (!totalWidth || totalWidth <= 0) {
+    if (totalWidth === '' || totalWidth === null || totalWidth === undefined || totalWidth <= 0) {
       newErrors.totalWidth = 'Total width must be greater than 0';
     }
-    if (!lengthPerPcs || lengthPerPcs <= 0) {
+    if (lengthPerPcs === '' || lengthPerPcs === null || lengthPerPcs === undefined || lengthPerPcs <= 0) {
       newErrors.lengthPerPcs = 'Length per piece must be greater than 0';
     }
-    if (!noOfPcs || noOfPcs <= 0) {
+    if (noOfPcs === '' || noOfPcs === null || noOfPcs === undefined || noOfPcs <= 0) {
       newErrors.noOfPcs = 'Number of pieces must be greater than 0';
     }
-    if (!sheetWidth || sheetWidth <= 0) {
+    if (sheetWidth === '' || sheetWidth === null || sheetWidth === undefined || sheetWidth <= 0) {
       newErrors.sheetWidth = 'Sheet width must be greater than 0';
     }
-    if (!sheetLength || sheetLength <= 0) {
+    if (sheetLength === '' || sheetLength === null || sheetLength === undefined || sheetLength <= 0) {
       newErrors.sheetLength = 'Sheet length must be greater than 0';
     }
-    if (!costPerKg || costPerKg <= 0) {
+    if (costPerKg === '' || costPerKg === null || costPerKg === undefined || costPerKg <= 0) {
       newErrors.costPerKg = 'Cost per kg must be greater than 0';
     }
 
@@ -108,6 +133,27 @@ function App() {
 
     // Clear errors if validation passed
     setErrors({});
+
+    // Add smooth transition effect
+    setIsCalculating(true);
+
+    // Use setTimeout to create smooth transition
+    setTimeout(() => {
+      performCalculation();
+      setIsCalculating(false);
+    }, 150);
+  };
+
+  const performCalculation = () => {
+    const {
+      thickness,
+      totalWidth,
+      lengthPerPcs,
+      noOfPcs,
+      sheetWidth,
+      sheetLength,
+      costPerKg
+    } = inputs;
 
     // Steel density in kg/m³ (7850 kg/m³ for steel)
     const steelDensity = 7850;
@@ -177,7 +223,7 @@ function App() {
     // Cost per piece based only on actual piece weight (for comparison)
     const costPerPieceActualWeight = totalFinishedCost / noOfPcs;
     
-    // Set all calculated results
+    // Set all calculated results with smooth transition
     setResults({
       piecesPerSheet,
       sheetsNeeded,
@@ -218,7 +264,7 @@ function App() {
                   name="thickness"
                   value={inputs.thickness}
                   onChange={handleInputChange}
-                  placeholder="e.g., 2"
+                  placeholder="Enter thickness (e.g., 2)"
                   min="0"
                   step="0.1"
                   className={errors.thickness ? 'error' : ''}
@@ -232,7 +278,7 @@ function App() {
                   name="totalWidth"
                   value={inputs.totalWidth}
                   onChange={handleInputChange}
-                  placeholder="e.g., 300"
+                  placeholder="Enter piece width (e.g., 300)"
                   min="0"
                   className={errors.totalWidth ? 'error' : ''}
                 />
@@ -245,7 +291,7 @@ function App() {
                   name="lengthPerPcs"
                   value={inputs.lengthPerPcs}
                   onChange={handleInputChange}
-                  placeholder="e.g., 3000"
+                  placeholder="Enter piece length (e.g., 3000)"
                   min="0"
                   className={errors.lengthPerPcs ? 'error' : ''}
                 />
@@ -258,7 +304,7 @@ function App() {
                   name="noOfPcs"
                   value={inputs.noOfPcs}
                   onChange={handleInputChange}
-                  placeholder="e.g., 50"
+                  placeholder="Enter quantity (e.g., 50)"
                   min="0"
                   className={errors.noOfPcs ? 'error' : ''}
                 />
@@ -275,7 +321,7 @@ function App() {
                   name="sheetWidth"
                   value={inputs.sheetWidth}
                   onChange={handleInputChange}
-                  placeholder="e.g., 1220"
+                  placeholder="Enter sheet width (e.g., 1220)"
                   min="0"
                   className={errors.sheetWidth ? 'error' : ''}
                 />
@@ -288,7 +334,7 @@ function App() {
                   name="sheetLength"
                   value={inputs.sheetLength}
                   onChange={handleInputChange}
-                  placeholder="e.g., 3000"
+                  placeholder="Enter sheet length (e.g., 3000)"
                   min="0"
                   className={errors.sheetLength ? 'error' : ''}
                 />
@@ -305,7 +351,7 @@ function App() {
                   name="costPerKg"
                   value={inputs.costPerKg}
                   onChange={handleInputChange}
-                  placeholder="e.g., 6"
+                  placeholder="Enter cost per kg (e.g., 6)"
                   min="0"
                   step="0.01"
                   className={errors.costPerKg ? 'error' : ''}
@@ -315,18 +361,28 @@ function App() {
             </div>
 
             <div className="button-group">
-              <button className="calculate-btn" onClick={calculate}>
-                Calculate
+              <button 
+                className="calculate-btn" 
+                onClick={calculate}
+                disabled={isCalculating}
+              >
+                {isCalculating ? 'Calculating...' : 'Calculate'}
               </button>
               <button className="reset-btn" onClick={handleReset}>
                 Reset
+              </button>
+            </div>
+            
+            <div className="example-button-container">
+              <button className="example-btn" onClick={loadExample}>
+                📋 Load Example Data
               </button>
             </div>
           </div>
 
           {/* Results Section */}
           {results && (
-            <div className="results-section">
+            <div className={`results-section ${isCalculating ? 'updating' : ''}`}>
               <h2>Output</h2>
               
               <div className="results-table">
