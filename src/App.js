@@ -15,6 +15,8 @@ function App() {
     costPerKg: ''
   });
 
+  const [standardProfilesStr, setStandardProfilesStr] = useState("325, 625, 524.5, 725, 425, 575, 474.6, 475, 375");
+
   const [results, setResults] = useState(null);
   const [errors, setErrors] = useState({});
   const [isCalculating, setIsCalculating] = useState(false);
@@ -22,7 +24,6 @@ function App() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Allow empty string or valid positive numbers
     if (value === '') {
       setInputs(prev => ({
         ...prev,
@@ -30,7 +31,6 @@ function App() {
       }));
     } else {
       const numValue = parseFloat(value);
-      // Only set if it's a valid positive number
       if (!isNaN(numValue) && numValue >= 0) {
         setInputs(prev => ({
           ...prev,
@@ -39,7 +39,6 @@ function App() {
       }
     }
     
-    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -65,11 +64,11 @@ function App() {
 
   const loadExample = () => {
     setInputs({
-      thickness: 2,
-      totalWidth: 300,
+      thickness: 2.5,
+      totalWidth: 325,
       lengthPerPcs: 3000,
-      noOfPcs: 50,
-      sheetWidth: 1220,
+      noOfPcs: 48,
+      sheetWidth: 1219,
       sheetLength: 3000,
       costPerKg: 6
     });
@@ -87,15 +86,13 @@ function App() {
       costPerKg
     } = inputs;
 
-    // Clear previous errors
     const newErrors = {};
 
-    // Validation: Check for empty, zero or invalid values
     if (thickness === '' || thickness === null || thickness === undefined || thickness <= 0) {
       newErrors.thickness = 'Thickness must be greater than 0';
     }
     if (totalWidth === '' || totalWidth === null || totalWidth === undefined || totalWidth <= 0) {
-      newErrors.totalWidth = 'Total width must be greater than 0';
+      newErrors.totalWidth = 'Target width must be greater than 0';
     }
     if (lengthPerPcs === '' || lengthPerPcs === null || lengthPerPcs === undefined || lengthPerPcs <= 0) {
       newErrors.lengthPerPcs = 'Length per piece must be greater than 0';
@@ -113,35 +110,77 @@ function App() {
       newErrors.costPerKg = 'Cost per kg must be greater than 0';
     }
 
-    // Check if piece width exceeds sheet width
     if (totalWidth > 0 && sheetWidth > 0 && totalWidth > sheetWidth) {
       newErrors.totalWidth = 'Piece width cannot exceed sheet width!';
       newErrors.sheetWidth = 'Sheet width must be larger than piece width!';
     }
-
-    // Check if piece length exceeds sheet length
     if (lengthPerPcs > 0 && sheetLength > 0 && lengthPerPcs > sheetLength) {
       newErrors.lengthPerPcs = 'Piece length cannot exceed sheet length!';
       newErrors.sheetLength = 'Sheet length must be larger than piece length!';
     }
 
-    // If there are any errors, set them and stop
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    // Clear errors if validation passed
     setErrors({});
-
-    // Add smooth transition effect
     setIsCalculating(true);
 
-    // Use setTimeout to create smooth transition
     setTimeout(() => {
       performCalculation();
       setIsCalculating(false);
     }, 150);
+  };
+
+  const getOptimization = (targetW, sheetW, standardProfsStr) => {
+      const multiplier = 100;
+      const capacity = Math.round((sheetW - targetW) * multiplier);
+
+      let profsArray = [];
+      try {
+        profsArray = standardProfsStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
+      } catch (e) {
+        profsArray = [];
+      }
+
+      if (!profsArray.includes(targetW)) profsArray.push(targetW);
+
+      const validProfiles = profsArray
+        .filter(w => w > 0 && w <= sheetW)
+        .map(w => ({ intWidth: Math.round(w * multiplier), realW: w }));
+
+      const dp = new Array(capacity + 1).fill(-1);
+      dp[0] = 0;
+
+      for (let w = 0; w <= capacity; w++) {
+        if (dp[w] !== -1) {
+          for (let p of validProfiles) {
+            if (w + p.intWidth <= capacity) {
+              dp[w + p.intWidth] = p.realW; 
+            }
+          }
+        }
+      }
+
+      let maxW = capacity;
+      while (maxW > 0 && dp[maxW] === -1) {
+        maxW--;
+      }
+
+      let currW = maxW;
+      const combination = {};
+      while (currW > 0) {
+        const wValue = dp[currW];
+        combination[wValue] = (combination[wValue] || 0) + 1;
+        currW -= Math.round(wValue * multiplier);
+      }
+
+      return {
+          combination,
+          usedOtherWidth: maxW / multiplier,
+          scrapWidth: Number((sheetW - (targetW + maxW / multiplier)).toFixed(2))
+      };
   };
 
   const performCalculation = () => {
@@ -155,75 +194,68 @@ function App() {
       costPerKg
     } = inputs;
 
-    // Steel density in kg/m³ (7850 kg/m³ for steel)
     const steelDensity = 7850;
 
-    // Calculate pieces per sheet (how many pieces fit across the width)
-    const piecesPerSheet = Math.floor(sheetWidth / totalWidth);
+    // OPTIMIZATION
+    const optResult = getOptimization(totalWidth, sheetWidth, standardProfilesStr);
+    const scrapWidth = optResult.scrapWidth;
     
-    // This should be caught by the validation above, but just in case
-    if (piecesPerSheet === 0) {
-      setErrors({
-        totalWidth: 'Piece is too wide to fit in sheet!',
-        sheetWidth: 'Sheet is too narrow for this piece width!'
-      });
-      return;
+    let targetPiecesPerSheet = 1;
+    if (optResult.combination[totalWidth]) {
+         targetPiecesPerSheet += optResult.combination[totalWidth];
     }
     
-    // Calculate sheets needed (round up to get whole sheets)
+    const piecesPerSheet = targetPiecesPerSheet;
     const sheetsNeeded = Math.ceil(noOfPcs / piecesPerSheet);
-    
-    // Calculate total pieces obtained from all sheets
     const piecesObtained = sheetsNeeded * piecesPerSheet;
-    
-    // Calculate extra pieces (leftover after fulfilling requirement)
     const extraPieces = piecesObtained - noOfPcs;
-    
-    // Calculate scrap (unused width per sheet)
-    const widthUsed = piecesPerSheet * totalWidth;
-    const scrapWidth = sheetWidth - widthUsed;
-    
-    // Calculate utilization percentages
+
+    let comboDisplay = `1 x ${totalWidth} mm`;
+    const byproductsArr = [];
+
+    if (optResult.combination[totalWidth]) {
+        comboDisplay = `${targetPiecesPerSheet} x ${totalWidth} mm`;
+        Object.keys(optResult.combination).forEach(wKey => {
+            const w = parseFloat(wKey);
+            const count = optResult.combination[wKey];
+            if (w !== totalWidth) {
+                comboDisplay += ` + ${count} x ${w} mm`;
+                byproductsArr.push(`Produces ${count * sheetsNeeded} units of ${w} mm`);
+            }
+        });
+    } else {
+        Object.keys(optResult.combination).forEach(wKey => {
+          const w = parseFloat(wKey);
+          const count = optResult.combination[wKey];
+          comboDisplay += ` + ${count} x ${w} mm`;
+          byproductsArr.push(`Produces ${count * sheetsNeeded} units of ${w} mm`);
+        });
+    }
+
+    const byproductsText = byproductsArr.length > 0 ? byproductsArr.join(', ') : "No extra byproducts";
+    const widthUsed = sheetWidth - scrapWidth;
     const widthUtilization = (widthUsed / sheetWidth) * 100;
     const lengthUtilization = lengthPerPcs === sheetLength ? 100 : (lengthPerPcs / sheetLength) * 100;
     
-    // === WEIGHT CALCULATIONS ===
-    // Convert all dimensions from millimeters to meters for volume calculation
     const sheetWidthM = sheetWidth / 1000;
     const sheetLengthM = sheetLength / 1000;
     const thicknessM = thickness / 1000;
     const totalWidthM = totalWidth / 1000;
     const lengthPerPcsM = lengthPerPcs / 1000;
     
-    // Calculate volume and weight of one sheet
-    // Volume = width × length × thickness (in m³)
     const volumePerSheet = sheetWidthM * sheetLengthM * thicknessM;
-    // Weight = volume × density
     const weightPerSheet = volumePerSheet * steelDensity;
-    
-    // Calculate volume and weight of one finished piece
     const volumePerPiece = totalWidthM * lengthPerPcsM * thicknessM;
     const weightPerPiece = volumePerPiece * steelDensity;
     
-    // Calculate total weights
     const totalSheetWeight = weightPerSheet * sheetsNeeded;
     const totalFinishedWeight = weightPerPiece * noOfPcs;
     
-    // === COST CALCULATIONS ===
-    // Total cost based on purchased sheets (includes scrap and extra pieces)
     const totalSheetCost = totalSheetWeight * costPerKg;
-    
-    // Cost based only on finished product weight (theoretical minimum)
     const totalFinishedCost = totalFinishedWeight * costPerKg;
-    
-    // Cost per piece spreading sheet cost over required pieces (SELLING PRICE)
-    // This includes the cost of scrap and extra pieces distributed across the required quantity
     const costPerPieceSheetBasis = totalSheetCost / noOfPcs;
-    
-    // Cost per piece based only on actual piece weight (for comparison)
     const costPerPieceActualWeight = totalFinishedCost / noOfPcs;
     
-    // Set all calculated results with smooth transition
     setResults({
       piecesPerSheet,
       sheetsNeeded,
@@ -240,123 +272,177 @@ function App() {
       totalSheetCost,
       totalFinishedCost,
       costPerPieceSheetBasis,
-      costPerPieceActualWeight
+      costPerPieceActualWeight,
+      comboDisplay,
+      byproductsText
     });
   };
+
+  const Tooltip = ({ text }) => (
+    <span className="info-icon">
+      i
+      <span className="tooltip-text">{text}</span>
+    </span>
+  );
 
   return (
     <div className="App">
       <div className="container">
         <h1>Material Cutting Calculator</h1>
-        <p className="subtitle">Civil Engineering - Sheet Material Optimization</p>
+        <p className="subtitle">Civil Engineering & Sheet Metal Optimization Suite</p>
 
         <div className="calculator-grid">
           {/* Input Section */}
           <div className="input-section">
-            <h2>Input</h2>
+            <h2>Parameters Hub</h2>
             
             <div className="input-group">
-              <h3>Finish Product</h3>
-              <div className="input-field">
-                <label>Thickness (mm)</label>
-                <input
-                  type="number"
-                  name="thickness"
-                  value={inputs.thickness}
-                  onChange={handleInputChange}
-                  placeholder="Enter thickness (e.g., 2)"
-                  min="0"
-                  step="0.1"
-                  className={errors.thickness ? 'error' : ''}
-                />
-                {errors.thickness && <span className="error-message">{errors.thickness}</span>}
-              </div>
-              <div className="input-field">
-                <label>Total Width (mm)</label>
-                <input
-                  type="number"
-                  name="totalWidth"
-                  value={inputs.totalWidth}
-                  onChange={handleInputChange}
-                  placeholder="Enter piece width (e.g., 300)"
-                  min="0"
-                  className={errors.totalWidth ? 'error' : ''}
-                />
-                {errors.totalWidth && <span className="error-message">{errors.totalWidth}</span>}
-              </div>
-              <div className="input-field">
-                <label>Length Per Pcs (mm)</label>
-                <input
-                  type="number"
-                  name="lengthPerPcs"
-                  value={inputs.lengthPerPcs}
-                  onChange={handleInputChange}
-                  placeholder="Enter piece length (e.g., 3000)"
-                  min="0"
-                  className={errors.lengthPerPcs ? 'error' : ''}
-                />
-                {errors.lengthPerPcs && <span className="error-message">{errors.lengthPerPcs}</span>}
-              </div>
-              <div className="input-field">
-                <label>No of Pcs</label>
-                <input
-                  type="number"
-                  name="noOfPcs"
-                  value={inputs.noOfPcs}
-                  onChange={handleInputChange}
-                  placeholder="Enter quantity (e.g., 50)"
-                  min="0"
-                  className={errors.noOfPcs ? 'error' : ''}
-                />
-                {errors.noOfPcs && <span className="error-message">{errors.noOfPcs}</span>}
+              <h3>Target Manufacturing Product</h3>
+              <div className="input-grid">
+                <div className="input-field">
+                  <div className="label-container">
+                    <label>Thickness (mm)</label>
+                    <Tooltip text="The physical depth of the steel coil being cut. E.g. 2.5mm" />
+                  </div>
+                  <input
+                    type="number"
+                    name="thickness"
+                    value={inputs.thickness}
+                    onChange={handleInputChange}
+                    placeholder="Enter thickness (e.g., 2)"
+                    min="0"
+                    step="0.1"
+                    className={errors.thickness ? 'error' : ''}
+                  />
+                  {errors.thickness && <span className="error-message">{errors.thickness}</span>}
+                </div>
+
+                <div className="input-field">
+                  <div className="label-container">
+                    <label>Target Profile Width (mm)</label>
+                    <Tooltip text="The primary profile width you are aiming to cut from the main steel sheet. The engine will force at least 1 of these per sheet!" />
+                  </div>
+                  <input
+                    type="number"
+                    name="totalWidth"
+                    value={inputs.totalWidth}
+                    onChange={handleInputChange}
+                    placeholder="Enter target width (e.g., 325)"
+                    min="0"
+                    step="0.1"
+                    className={errors.totalWidth ? 'error' : ''}
+                  />
+                  {errors.totalWidth && <span className="error-message">{errors.totalWidth}</span>}
+                </div>
+
+                <div className="input-field">
+                  <div className="label-container">
+                    <label>Length Per Piece (mm)</label>
+                    <Tooltip text="Length of the physical piece to be cut out. E.g. 3000mm length." />
+                  </div>
+                  <input
+                    type="number"
+                    name="lengthPerPcs"
+                    value={inputs.lengthPerPcs}
+                    onChange={handleInputChange}
+                    placeholder="Enter piece length (e.g., 3000)"
+                    min="0"
+                    className={errors.lengthPerPcs ? 'error' : ''}
+                  />
+                  {errors.lengthPerPcs && <span className="error-message">{errors.lengthPerPcs}</span>}
+                </div>
+
+                <div className="input-field">
+                  <div className="label-container">
+                    <label>Requested Quantity</label>
+                    <Tooltip text="The total number of Target Profile pieces you need to fulfill the order." />
+                  </div>
+                  <input
+                    type="number"
+                    name="noOfPcs"
+                    value={inputs.noOfPcs}
+                    onChange={handleInputChange}
+                    placeholder="Enter needed qty (e.g., 50)"
+                    min="0"
+                    className={errors.noOfPcs ? 'error' : ''}
+                  />
+                  {errors.noOfPcs && <span className="error-message">{errors.noOfPcs}</span>}
+                </div>
               </div>
             </div>
 
             <div className="input-group">
-              <h3>Raw Material Sheet Size</h3>
-              <div className="input-field">
-                <label>Sheet Width (mm)</label>
-                <input
-                  type="number"
-                  name="sheetWidth"
-                  value={inputs.sheetWidth}
-                  onChange={handleInputChange}
-                  placeholder="Enter sheet width (e.g., 1220)"
-                  min="0"
-                  className={errors.sheetWidth ? 'error' : ''}
-                />
-                {errors.sheetWidth && <span className="error-message">{errors.sheetWidth}</span>}
-              </div>
-              <div className="input-field">
-                <label>Sheet Length (mm)</label>
-                <input
-                  type="number"
-                  name="sheetLength"
-                  value={inputs.sheetLength}
-                  onChange={handleInputChange}
-                  placeholder="Enter sheet length (e.g., 3000)"
-                  min="0"
-                  className={errors.sheetLength ? 'error' : ''}
-                />
-                {errors.sheetLength && <span className="error-message">{errors.sheetLength}</span>}
+              <h3>Master Coil / Sheet Constraints</h3>
+              <div className="input-grid">
+                <div className="input-field">
+                  <div className="label-container">
+                    <label>Coil Sheet Width (mm)</label>
+                    <Tooltip text="The total wide width of the raw material. Used as the constraint boundaries for the mathematical optimizer." />
+                  </div>
+                  <input
+                    type="number"
+                    name="sheetWidth"
+                    value={inputs.sheetWidth}
+                    onChange={handleInputChange}
+                    placeholder="Enter master sheet width (e.g., 1219)"
+                    min="0"
+                    className={errors.sheetWidth ? 'error' : ''}
+                  />
+                  {errors.sheetWidth && <span className="error-message">{errors.sheetWidth}</span>}
+                </div>
+
+                <div className="input-field">
+                  <div className="label-container">
+                    <label>Coil Sheet Length (mm)</label>
+                    <Tooltip text="Standard length boundary of the purchased raw sheet material." />
+                  </div>
+                  <input
+                    type="number"
+                    name="sheetLength"
+                    value={inputs.sheetLength}
+                    onChange={handleInputChange}
+                    placeholder="Enter master sheet length (e.g., 3000)"
+                    min="0"
+                    className={errors.sheetLength ? 'error' : ''}
+                  />
+                  {errors.sheetLength && <span className="error-message">{errors.sheetLength}</span>}
+                </div>
               </div>
             </div>
 
             <div className="input-group">
-              <h3>Pricing</h3>
-              <div className="input-field">
-                <label>Cost Per Kg (AED)</label>
-                <input
-                  type="number"
-                  name="costPerKg"
-                  value={inputs.costPerKg}
-                  onChange={handleInputChange}
-                  placeholder="Enter cost per kg (e.g., 6)"
-                  min="0"
-                  step="0.01"
-                  className={errors.costPerKg ? 'error' : ''}
-                />
-                {errors.costPerKg && <span className="error-message">{errors.costPerKg}</span>}
+              <h3>Optimization Engine Values</h3>
+              <div className="input-grid">
+                <div className="input-field">
+                  <div className="label-container">
+                    <label>Cost Per Kg (AED)</label>
+                    <Tooltip text="The raw material purchase cost. Used to determine the minimum selling price of your finished pieces including scrap penalty." />
+                  </div>
+                  <input
+                    type="number"
+                    name="costPerKg"
+                    value={inputs.costPerKg}
+                    onChange={handleInputChange}
+                    placeholder="Enter cost per kg (e.g., 6)"
+                    min="0"
+                    step="0.01"
+                    className={errors.costPerKg ? 'error' : ''}
+                  />
+                  {errors.costPerKg && <span className="error-message">{errors.costPerKg}</span>}
+                </div>
+
+                <div className="input-field full-width">
+                  <div className="label-container">
+                    <label>Combinatory Standard Profiles (Values to test against)</label>
+                    <Tooltip text="Enter your factory's other standard profile widths separated by commas. The AI engine tests combining your Target Profile alongside these numbers to locate a pattern with mathematically Zero/Minimum Scrap waste!" />
+                  </div>
+                  <input
+                    type="text"
+                    value={standardProfilesStr}
+                    onChange={(e) => setStandardProfilesStr(e.target.value)}
+                    placeholder="e.g. 325, 425, 625, 524.5"
+                  />
+                </div>
               </div>
             </div>
 
@@ -366,16 +452,16 @@ function App() {
                 onClick={calculate}
                 disabled={isCalculating}
               >
-                {isCalculating ? 'Calculating...' : 'Calculate'}
+                {isCalculating ? 'Computing Optimal Pathways...' : 'Algorithmically Calculate'}
               </button>
               <button className="reset-btn" onClick={handleReset}>
-                Reset
+                Clear
               </button>
             </div>
             
             <div className="example-button-container">
               <button className="example-btn" onClick={loadExample}>
-                📋 Load Example Data
+                Try WhatsApp Example (325mm out of 1219mm)
               </button>
             </div>
           </div>
@@ -383,86 +469,86 @@ function App() {
           {/* Results Section */}
           {results && (
             <div className={`results-section ${isCalculating ? 'updating' : ''}`}>
-              <h2>Output</h2>
+              <h2>Computed Extraction Details</h2>
               
               <div className="results-table">
                 <div className="result-row highlight">
-                  <span className="result-label">No Of Pcs Required from Raw Material</span>
+                  <span className="result-label">Raw Material Sheets Needed</span>
                   <span className="result-value">{results.sheetsNeeded} sheets</span>
                 </div>
                 <div className="result-row">
-                  <span className="result-label">Finish Product Weight Per Pcs</span>
+                  <span className="result-label">Approx Target Weight Per Pcs</span>
                   <span className="result-value">{results.weightPerPiece.toFixed(2)} kg</span>
                 </div>
                 <div className="result-row success">
-                  <span className="result-label">Selling Price per Pcs</span>
+                  <span className="result-label">Minimum Selling Price per Pcs</span>
                   <span className="result-value">AED {results.costPerPieceSheetBasis.toFixed(2)}</span>
+                </div>
+                
+                <div style={{marginTop: "1.5rem", padding: "1.25rem", background: "linear-gradient(to right, #f0fdfa, #ecfdf5)", borderRadius: "10px", border: "1px solid #34d399", position: "relative"}}>
+                    <div style={{position: "absolute", top: "-12px", background: "white", padding: "2px 10px", borderRadius: "10px", fontSize: "0.8rem", fontWeight: "bold", border: "1px solid #34d399", color: "#059669"}}>OPTIMIZED CUT PATTERN</div>
+                    <div style={{fontSize: "1.2rem", fontWeight: "bold", color: "#0f172a", marginBottom: "8px", fontFamily: "monospace"}}>{results.comboDisplay}</div>
+                    <div style={{fontSize: "0.95rem", color: "#475569", marginBottom: "4px"}}>Calculated Leftover Scrap: <strong style={{color: results.scrapWidth === 0 ? "green" : "#ef4444"}}>{results.scrapWidth} mm</strong></div>
+                    <div style={{fontSize: "0.85em", color: "#64748b", fontStyle: "italic"}}><Tooltip text="This indicates how many extra pieces are automatically formulated due to injecting standard profiles into the open spaces of the cut pattern." /> {results.byproductsText}</div>
                 </div>
               </div>
 
               <div className="calculation-details">
-                <h3>Detailed Breakdown</h3>
+                <h3>Technical Summary</h3>
                 
                 <div className="detail-section">
-                  <h4>Material Calculation</h4>
-                  <div className="detail-box">
-                    <p><strong>Pieces per sheet:</strong></p>
-                    <p className="formula">⌊{inputs.sheetWidth} ÷ {inputs.totalWidth}⌋ = {results.piecesPerSheet} pcs/sheet</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Sheets needed:</strong></p>
-                    <p className="formula">⌈{inputs.noOfPcs} ÷ {results.piecesPerSheet}⌉ = {results.sheetsNeeded} sheets</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Total pieces obtained:</strong></p>
-                    <p className="formula">{results.sheetsNeeded} × {results.piecesPerSheet} = {results.piecesObtained} pcs</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Extra pieces:</strong></p>
-                    <p className="formula">{results.piecesObtained} - {inputs.noOfPcs} = {results.extraPieces} pcs</p>
+                  <h4>Extraction Data</h4>
+                  <div className="detail-grid">
+                    <div className="detail-box">
+                      <p><strong>Target Pieces Extracted p/sheet:</strong></p>
+                      <p className="formula">{results.piecesPerSheet} pcs</p>
+                    </div>
+                    <div className="detail-box">
+                      <p><strong>Sheets Required:</strong></p>
+                      <p className="formula">⌈{inputs.noOfPcs} ÷ {results.piecesPerSheet}⌉ = {results.sheetsNeeded}</p>
+                    </div>
+                    <div className="detail-box">
+                      <p><strong>Surplus Pieces Acquired:</strong></p>
+                      <p className="formula">{results.piecesObtained} - {inputs.noOfPcs} = {results.extraPieces}</p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="detail-section">
-                  <h4>Utilization</h4>
-                  <div className="detail-box">
-                    <p><strong>Width used per sheet:</strong></p>
-                    <p className="formula">{results.piecesPerSheet} × {inputs.totalWidth} = {results.widthUsed} mm</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Scrap per sheet:</strong></p>
-                    <p className="formula">{inputs.sheetWidth} - {results.widthUsed} = {results.scrapWidth} mm</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Width utilization:</strong></p>
-                    <p className="formula">{results.widthUtilization.toFixed(2)}%</p>
+                  <h4>Width Utility Report</h4>
+                  <div className="detail-grid">
+                    <div className="detail-box">
+                      <p><strong>Pattern Base Width Consumption:</strong></p>
+                      <p className="formula">{results.widthUsed.toFixed(2)} mm</p>
+                    </div>
+                    <div className="detail-box">
+                      <p><strong>Remaining Dead Space:</strong></p>
+                      <p className="formula">{results.scrapWidth.toFixed(2)} mm</p>
+                    </div>
+                    <div className="detail-box">
+                      <p><strong>Max Yield Percentage:</strong></p>
+                      <p className="formula">{results.widthUtilization.toFixed(2)}%</p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="detail-section">
-                  <h4>Weight & Cost Analysis</h4>
-                  <div className="detail-box">
-                    <p><strong>Weight per sheet:</strong></p>
-                    <p className="formula">{results.weightPerSheet.toFixed(2)} kg</p>
+                  <h4>Financial Index</h4>
+                  <div className="detail-grid">
+                    <div className="detail-box">
+                      <p><strong>Single Coil Purchase Cost:</strong></p>
+                      <p className="formula">AED {(results.weightPerSheet * inputs.costPerKg).toFixed(2)}</p>
+                    </div>
+                    <div className="detail-box">
+                      <p><strong>Grand Total Cost:</strong></p>
+                      <p className="formula">AED {results.totalSheetCost.toFixed(2)}</p>
+                    </div>
+                    <div className="detail-box">
+                      <p><strong>Target Actual Baseline Value:</strong></p>
+                      <p className="formula">AED {results.costPerPieceActualWeight.toFixed(2)}/pc</p>
+                    </div>
                   </div>
-                  <div className="detail-box">
-                    <p><strong>Total sheet weight:</strong></p>
-                    <p className="formula">{results.sheetsNeeded} × {results.weightPerSheet.toFixed(2)} = {results.totalSheetWeight.toFixed(2)} kg</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Total finished weight ({inputs.noOfPcs} pcs):</strong></p>
-                    <p className="formula">{inputs.noOfPcs} × {results.weightPerPiece.toFixed(2)} = {results.totalFinishedWeight.toFixed(2)} kg</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Total sheet cost:</strong></p>
-                    <p className="formula">{results.totalSheetWeight.toFixed(2)} kg × AED {inputs.costPerKg} = AED {results.totalSheetCost.toFixed(2)}</p>
-                  </div>
-                  <div className="detail-box">
-                    <p><strong>Cost breakdown:</strong></p>
-                    <p className="formula">Sheet basis (incl. scrap): AED {results.costPerPieceSheetBasis.toFixed(2)}/pc</p>
-                    <p className="formula">Actual weight only: AED {results.costPerPieceActualWeight.toFixed(2)}/pc</p>
-                    <p className="info-text">* Selling price includes cost of {results.extraPieces} extra pcs + {results.scrapWidth}mm scrap per sheet</p>
-                  </div>
+                  <p className="info-text" style={{marginTop:"1rem"}}>* Note: Minimum Selling Price automatically accounts for Scrap dead-weight loss factor distributed into required piece count.</p>
                 </div>
               </div>
             </div>
@@ -474,4 +560,3 @@ function App() {
 }
 
 export default App;
-
